@@ -39,7 +39,7 @@ changed: [54.213.222.178]
 PLAY RECAP *********************************************************************
 54.213.222.178             : ok=9    changed=7    unreachable=0    failed=0  
 ```
-
+..
 ### Test LDAP account 
 
 ```
@@ -94,9 +94,7 @@ ldapuser1:x:1001:1001:ldapuser1:/home/ldapuser1:/bin/bash
 [ec2-user@client1 ~]$ 
 ```
 
-
-\\
-
+..
 ### Before jump-host policy
 ```
 [root@new-host-10 ldap-code]# ssh ec2-user@54.213.43.28
@@ -113,6 +111,7 @@ client1.ldap-coding-challenge.com
 [ec2-user@client1 ~]$
 ```
 
+..
 ## After jump-host policy
 ```
 HQSML-146554:aws hferna001c$ ssh -i "awskey.pem" ec2-user@ec2-54-213-43-28.us-west-2.compute.amazonaws.com -v
