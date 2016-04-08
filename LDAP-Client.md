@@ -1,4 +1,4 @@
-#  Coding Challenge
+###  Coding Challenge
 
 ```
 ansible-playbook ldapclientsetup.yml -i hosts
