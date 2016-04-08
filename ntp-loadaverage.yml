@@ -1,0 +1,37 @@
+---
+##########################
+#### Coding Challenge ####
+##########################
+#
+# Author:  Hasitha Fernando <hasithaf@gmail.com>
+#
+# description: Install NTP service and check for stratum
+#              Check for system load average
+#
+##########################
+- hosts: ldapserver
+  sudo: yes
+#  vars: 
+#    fqdn: server1.ldap-coding-challenge.com
+  tasks:
+    - name: install ntp
+      yum: name=ntp state=latest
+#
+    - name: start and enable ntpd
+      service: name=ntpd enabled=true state=restarted
+#
+    - name: test ntp
+      shell: ntpq -p
+      register: ntpstat
+    - debug: msg="{{ntpstat.stdout_lines}}"
+#
+    - name: check stratum
+      shell: ntpq -c rv |awk -F, '/stratum/{print $1}'
+      register: stratumchk
+    - debug: msg="{{stratumchk.stdout_lines}}"
+#
+    - name: check load average
+      shell: uptime |awk -F, '{print $3","$4","$5}'
+      register: uptimechk
+    - debug: msg="{{uptimechk.stdout_lines}}"
+##

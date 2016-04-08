@@ -1,0 +1,5 @@
+[ldapserver]
+54.213.43.28 	ansible_ssh_user=ec2-user
+
+[ldapclient]
+54.213.222.178	ansible_ssh_user=ec2-user

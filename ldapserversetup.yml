@@ -1,0 +1,195 @@
+---
+##########################
+#### Coding Challenge ####
+##########################
+#
+# Author:  Hasitha Fernando <hasithaf@gmail.com>
+#
+# description: Provides a single run installation
+#              for LDAP and related services
+#
+# credits: http://suresh-chandra.blogspot.com/2015/04/openldap-server-configuration-on-rhel-7.html
+#          http://www.learnitguide.net/2016/01/configure-openldap-server-on-rhel7.html
+#
+##########################
+- hosts: ldapserver
+  sudo: yes
+#  vars: 
+#    fqdn: server1.ldap-coding-challenge.com
+  tasks:
+    - name: clean repo
+      command: yum clean all
+#
+    - name: yum update
+      yum: name=* state=latest
+#
+    - name: install openldap*, migrationtools, nfs-utils, rpcbind
+      yum: name={{item}} state=latest
+      with_items:
+          - '*openldap*'
+          - 'openldap-clients'
+          - 'migrationtools'
+          - 'nfs-utils'
+          - 'rpcbind'
+#
+    - name: add entry to /etc/hosts
+      lineinfile: dest=/etc/hosts line='{{inventory_hostname}}  server1  server1.ldap-coding-challenge.com'
+#
+    - name: set hostname/domain
+      shell: hostnamectl set-hostname server1.ldap-coding-challenge.com
+#
+    - name: create ldap admin secret-passwd
+      shell: slappasswd -s redhat -n > /etc/openldap/secret-passwd; cat /etc/openldap/secret-passwd 
+      register: ldapadminpass
+#
+    - name: create a symlink for olcDatabase={2}bdb.ldif
+      shell: ln -sf /etc/openldap/slapd.d/cn\=config/olcDatabase\=\{2\}hdb.ldif /etc/openldap/slapd.d/olcDatabase2hdb.ldif
+#
+    - name: edit olcDatabase={2}bdb.ldif
+      lineinfile: dest=/etc/openldap/slapd.d/olcDatabase2hdb.ldif regexp={{item.reg}} line={{item.line}}
+      with_items:
+          - { reg: 'olcAccess: \{2\}.*',          line: 'olcAccess: {2}to * by dn="cn=Manager,dc=ldap-coding-challenge,dc=com" write  by * read' }
+          - { reg: 'olcSuffix:.*',                line: 'olcSuffix: dc=ldap-coding-challenge,dc=com' }
+          - { reg: 'olcRootDN:.*',                line: 'olcRootDN: cn=Manager,dc=ldap-coding-challenge,dc=com' }
+          - { reg: 'olcRootPW:.*',                line: 'olcRootPW: {{ldapadminpass.stdout}}' }
+          - { reg: 'olcTLSCertificateFile:.*',    line: 'olcTLSCertificateFile: /etc/pki/CA/cacert.pem' }
+          - { reg: 'olcTLSCertificateKeyFile:.*', line: 'olcTLSCertificateKeyFile: /etc/pki/CA/private/cakey.pem' }
+#
+    - name: create a symlink for olcDatabase={1}monitor.ldif
+      shell: ln -sf /etc/openldap/slapd.d/cn\=config/olcDatabase\=\{1\}monitor.ldif /etc/openldap/slapd.d/olcDatabase1monitor.ldif
+#
+    - name: edit olcDatabase={2}bdb.ldif
+      lineinfile: dest=/etc/openldap/slapd.d/olcDatabase1monitor.ldif regexp={{item.reg}} line={{item.line}} state={{item.state}}
+      with_items:
+          - { state: present, reg: 'olcAccess:.*$',   line: 'olcAccess: {0}to * by dn.base="gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth" read by dn.base="cn=Manager,dc=ldap-coding-challenge,dc=com" read by * none' }
+          - { state: absent, reg: '^ al,cn=auth".*$', line: '' }
+#          - { state: absent, reg: '^...none.*$',      line: '' }
+#          - { state: absent,  reg: '^$',              line: '' }
+#
+    - name: generate a X509 self sign certificate
+      shell: openssl req -new -x509 -nodes -out /etc/pki/CA/cacert.pem -keyout /etc/pki/CA/private/cakey.pem -subj "/CN=server1.ldap-coding-challenge.com" -days 365
+      register: opensslout
+    - debug: msg="{{opensslout}}"
+#
+    - name: set permission to /etc/pki/CA/cacert.pem
+      file: path=/etc/pki/CA/cacert.pem state=file owner=ldap group=ldap
+#
+    - name: set permission to /etc/pki/CA/private/cakey.pem
+      file: path=/etc/pki/CA/private/cakey.pem state=file mode=0600
+#
+    - name: prepare LDAP database
+      shell: cp -rvf /usr/share/openldap-servers/DB_CONFIG.example /var/lib/ldap/DB_CONFIG
+#
+    - name: set permission to /var/lib/ldap/
+      file: path=/var/lib/ldap/ state=directory owner=ldap group=ldap recurse=yes
+# 
+    - name: edit /etc/sysconfig/slapd
+      lineinfile: dest=/etc/sysconfig/slapd regexp='^SLAPD_URLS=.*$' line='SLAPD_URLS="ldapi:///   ldap:///   ldaps:///"'
+#
+    - name: test ldap configuration
+      shell: slaptest -u
+      register: ldaptestout
+    - debug: msg="{{ldaptestout}}"
+#
+    - name: start and enable slapd at boot
+      service: name=slapd enabled=true state=restarted
+#
+    - name: check LDAP 
+      shell: netstat -lt |grep ldap; netstat -tunlp |egrep '389|636'
+      register: netstatout
+    - debug: msg="{{netstatout}}"
+#
+    - name: add the LDAP schemas
+      shell: |
+        ldapadd -Y EXTERNAL -H ldapi:/// -f /etc/openldap/schema/cosine.ldif
+        ldapadd -Y EXTERNAL -H ldapi:/// -f /etc/openldap/schema/nis.ldif
+        ldapadd -Y EXTERNAL -H ldapi:/// -f /etc/openldap/schema/inetorgperson.ldif
+      register: ldapschemaout
+      ignore_errors: yes
+    - debug: msg="{{ldapschemaout}}"
+#
+    - name: edit migrate_common.ph
+      lineinfile: dest=/usr/share/migrationtools/migrate_common.ph regexp={{item.reg}} line={{item.line}}
+      with_items:
+          - { reg: 'DEFAULT_MAIL_DOMAIN = ".*$', line: '$DEFAULT_MAIL_DOMAIN = "ldap-coding-challenge.com";' }
+          - { reg: 'DEFAULT_BASE = ".*$',        line: '$DEFAULT_BASE = "dc=ldap-coding-challenge,dc=com";' }
+          - { reg: 'EXTENDED_SCHEMA = 0.*$',     line: '$EXTENDED_SCHEMA = 1;' }
+#
+    - name: generate and load base.ldif
+      shell: |
+        /usr/share/migrationtools/migrate_base.pl > /root/base.ldif
+        ldapadd -x -w redhat -D "cn=Manager,dc=ldap-coding-challenge,dc=com" -f /root/base.ldif
+      register: loadbaseldif
+      ignore_errors: yes
+    - debug: msg="{{loadbaseldif}}"
+#
+    - name: add ldapuser1/2
+      shell: |
+         useradd ldapuser1
+         useradd ldapuser2
+         echo 'redhat' | passwd --stdin ldapuser1
+         echo 'redhat' | passwd --stdin ldapuser2
+      ignore_errors: yes
+#
+    - name: generate /root/users, root/shadow, /root/groups for ldap auth
+      shell: |
+        getent passwd |grep ':10[0-9][0-9]' > /root/users
+        getent shadow |grep 'ldapuser'      > /root/shadow
+        getent group  |grep ':10[0-9][0-9]' > /root/groups
+#
+    - name: remove ldapuser1/2
+      user: name={{item}} state=absent remove=yes
+      with_items:
+          - ldapuser1
+          - ldapuser2
+#
+    - name: edit migrate_common.ph
+      lineinfile: dest=/usr/share/migrationtools/migrate_passwd.pl regexp={{item.reg}} line={{item.line}}
+      with_items:
+          - { reg: 'SHADOW, "/etc/shadow"', line: '        open(SHADOW, "/root/shadow") || return;' }
+#
+    - name: create /root/users.ldif, /root/groups.ldif for ldap auth
+      shell: |
+        /usr/share/migrationtools/migrate_passwd.pl /root/users > /root/users.ldif
+        /usr/share/migrationtools/migrate_group.pl /root/groups > /root/groups.ldif
+#
+    - name: upload users and groups ldif file to LDAP DB
+      shell: |
+        ldapadd -x -w redhat -D "cn=Manager,dc=ldap-coding-challenge,dc=com" -f /root/users.ldif
+        ldapadd -x -w redhat -D "cn=Manager,dc=ldap-coding-challenge,dc=com" -f /root/groups.ldif
+      register: ldif2ldapdb
+      ignore_errors: yes      
+    - debug: msg="{{ldif2ldapdb}}"
+#
+    - name: test LDAP
+      shell: ldapsearch -x -b "dc=ldap-coding-challenge,dc=com" -H ldap://server1.ldap-coding-challenge.com
+      register: testldap
+      ignore_errors: yes      
+    - debug: msg="{{testldap.stdout_lines}}"
+#
+    - name: edit /etc/exports
+      lineinfile: dest=/etc/exports line='/home    *(rw,sync)'
+#
+    - name: start and enable nfs at boot
+      service: name={{item}} enabled=true state=restarted
+      with_items:
+          - nfs
+          - rpcbind
+      ignore_errors: yes 
+#
+    - name: test nfs 
+      shell: showmount -e
+      register: testnfs
+      ignore_errors: yes      
+    - debug: msg="{{testnfs.stdout_lines}}" 
+#
+
+
+
+
+
+
+
+
+
+

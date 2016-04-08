@@ -1,0 +1,50 @@
+---
+##########################
+#### Coding Challenge ####
+##########################
+#
+# Author:  Hasitha Fernando <hasithaf@gmail.com>
+#
+# description: Provides a single run installation
+#              for LDAP client
+#
+# credits: http://suresh-chandra.blogspot.com/2015/04/openldap-server-configuration-on-rhel-7.html
+#          http://www.learnitguide.net/2016/01/configure-openldap-server-on-rhel7.html
+#
+##########################
+- hosts: ldapclient
+  sudo: yes
+#  vars: 
+#    fqdn: client1.ldap-coding-challenge.com
+  tasks:
+    - name: clean repo
+      command: yum clean all
+#
+    - name: yum update
+      yum: name=* state=latest
+#
+    - name: install openldap-clients, nss-pam-ldapd, autofs
+      yum: name={{item}} state=latest
+      with_items:
+          - 'openldap-clients'
+          - 'nss-pam-ldapd'
+          - 'autofs'
+#
+    - name: add entry to /etc/hosts
+      lineinfile: dest=/etc/hosts line={{item}}
+      with_items:
+          - "{{inventory_hostname}}  client1  client1.ldap-coding-challenge.com"
+          - "{{groups['ldapserver'][0]}}  server1  server1.ldap-coding-challenge.com"
+#
+    - name: set hostname/domain
+      shell: hostnamectl set-hostname client1.ldap-coding-challenge.com
+#
+    - name: add entry to /etc/fstab
+      lineinfile: dest=/etc/fstab line='server1.ldap-coding-challenge.com:/home   /home   auto  defaults 0 0'
+#
+    - name: start and enable autofs
+      service: name=autofs enabled=true state=restarted
+#
+    - name: setup LDAP authentication
+      shell: authconfig --enableldap --enableldapauth --enablemkhomedir --ldapserver="server1.ldap-coding-challenge.com" --ldapbasedn="dc=ldap-coding-challenge,dc=com" --update
+##

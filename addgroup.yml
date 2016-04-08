@@ -1,0 +1,53 @@
+---
+##########################
+#### Coding Challenge ####
+##########################
+#
+# Author:  Hasitha Fernando <hasithaf@gmail.com>
+#
+# description: Add techops_dba to groups, sudoers
+#              and access.conf.
+#              display content of above files
+#
+##########################
+- hosts: ldapserver
+  sudo: yes
+#  vars: 
+#    fqdn: client1.ldap-coding-challenge.com
+  tasks:
+    - name: create group techops_dba
+      group: name=techops_dba state=present
+#
+    - name: print /etc/group
+      shell: getent group
+      register: groupout
+    - debug: msg="{{groupout.stdout_lines}}"
+#    
+    - name: add techops_dba to /etc/security/access.conf
+      lineinfile: dest=/etc/security/access.conf line={{item}}
+      with_items:
+          - '# This will add "techops_dba" with all privileges'
+          - '+ : @techops_dba : ALL'
+#
+    - name: print /etc/security/access.conf
+      shell: cat /etc/security/access.conf
+      register: accessconfout
+    - debug: msg="{{accessconfout.stdout_lines}}"
+#
+    - name: set /etc/sudoers permission to 640
+      file: path=/etc/sudoers state=file mode=0640
+#
+    - name: add techops_dba to /etc/sudoers
+      lineinfile: dest=/etc/sudoers line={{item}}
+      with_items:
+          - '## Allows people in group techops_dba to run all commands'
+          - '%techops_dba	ALL=(ALL) 	ALL'
+#
+    - name: set /etc/sudoers permission back to 440
+      file: path=/etc/sudoers state=file mode=0440
+#
+    - name: print /etc/sudoers
+      shell: cat /etc/sudoers
+      register: sudoersout
+    - debug: msg="{{sudoersout.stdout_lines}}"
+##
