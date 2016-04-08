@@ -93,7 +93,9 @@ exit
 ldapuser1:x:1001:1001:ldapuser1:/home/ldapuser1:/bin/bash
 [ec2-user@client1 ~]$ 
 ```
-\\
+
+\
+\
 \\
 
 ### Before jump-host policy
