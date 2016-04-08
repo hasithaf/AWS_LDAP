@@ -1,3 +1,0 @@
-OPTIONS='--selinux-enabled -H tcp://0.0.0.0:2375 -H unix:///var/run/docker.sock'
-#ADD_REGISTRY='--add-registry registry.access.redhat.com --add-registry docker.cats.comcast.net:5000 --add-registry 10.252.123.33:5000'
-INSECURE_REGISTRY='--insecure-registry  docker.cats.comcast.net:5000 --insecure-registry  10.252.123.33:5000'

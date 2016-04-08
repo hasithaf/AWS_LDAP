@@ -1,4 +1,0 @@
-#!/bin/bash
-DOCKER_COMPOSE_HOME=/usr/local
-export DOCKER_COMPOSE_HOME
-PATH=${PATH}:${DOCKER_COMPOSE_HOME}/bin:
