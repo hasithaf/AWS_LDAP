@@ -39,8 +39,8 @@ changed: [54.213.222.178]
 PLAY RECAP *********************************************************************
 54.213.222.178             : ok=9    changed=7    unreachable=0    failed=0  
 ```
-..
-### Test LDAP account 
+
+..### Test LDAP account 
 
 ```
 [root@new-host-10 ldap-code]# ssh ec2-user@54.213.222.178
@@ -94,8 +94,7 @@ ldapuser1:x:1001:1001:ldapuser1:/home/ldapuser1:/bin/bash
 [ec2-user@client1 ~]$ 
 ```
 
-..
-### Before jump-host policy
+..### Before jump-host policy
 ```
 [root@new-host-10 ldap-code]# ssh ec2-user@54.213.43.28
 Last login: Thu Apr  7 21:49:19 2016 from pool-100-11-29-175.phlapa.fios.verizon.net
@@ -111,8 +110,7 @@ client1.ldap-coding-challenge.com
 [ec2-user@client1 ~]$
 ```
 
-..
-## After jump-host policy
+..## After jump-host policy
 ```
 HQSML-146554:aws hferna001c$ ssh -i "awskey.pem" ec2-user@ec2-54-213-43-28.us-west-2.compute.amazonaws.com -v
 OpenSSH_6.2p2, OSSLShim 0.9.8r 8 Dec 2011
